@@ -172,7 +172,8 @@ tmux split-window -h    # デプロイPane用
      echo "$(date): ${completed_phase} 完了 by ${reporting_pane}" >> .task/${task_id}/log
      
      # 3. current_assignmentsから該当エントリを削除
-     jq "del(.\"${reporting_pane}\")" .task/panes/current_assignments > temp && mv temp .task/panes/current_assignments
+     grep -v "^${reporting_pane}:" .task/panes/current_assignments > temp 2>/dev/null || touch temp
+     mv temp .task/panes/current_assignments
      ```
      
      **B. 全Paneの状況確認と次タスクの割り振り**
@@ -264,7 +265,7 @@ tmux split-window -h    # デプロイPane用
        echo "running" > .task/$task/phases/$phase
        
        # 割り当て履歴を記録
-       jq ".\"$pane\" = \"$task:$phase\"" .task/panes/current_assignments > temp && mv temp .task/panes/current_assignments
+       echo "$pane:$task:$phase" >> .task/panes/current_assignments
        
        # Paneにタスクを送信
        tmux send-keys -t $pane "$description (フェーズ: $phase)。完了後は必ず親Pane(%25)に報告してください。" Enter
@@ -375,7 +376,7 @@ tmux split-window -h    # デプロイPane用
        # busyだが割り当てられていないPaneを検出
        for pane in %31 %32 %33 %34 %35; do
          if [ "$(cat .task/panes/${pane}_status)" = "busy" ]; then
-           if ! jq -e ".\"$pane\"" .task/panes/current_assignments > /dev/null; then
+           if ! grep -q "^$pane:" .task/panes/current_assignments 2>/dev/null; then
              echo "idle" > .task/panes/${pane}_status
              echo "$(date): $pane の不正な busy 状態を修復" >> .task/system.log
            fi
@@ -389,7 +390,7 @@ tmux split-window -h    # デプロイPane用
            for phase in development review testing documentation deployment; do
              if [ "$(cat $task_dir/phases/$phase 2>/dev/null)" = "running" ]; then
                # 該当するPaneがbusyでない場合はpendingに戻す
-               assigned_pane=$(jq -r "to_entries[] | select(.value | startswith(\"$task:$phase\")) | .key" .task/panes/current_assignments)
+               assigned_pane=$(grep ":$task:$phase" .task/panes/current_assignments 2>/dev/null | cut -d: -f1)
                if [ -z "$assigned_pane" ] || [ "$(cat .task/panes/${assigned_pane}_status)" != "busy" ]; then
                  echo "pending" > $task_dir/phases/$phase
                  echo "$(date): $task の $phase フェーズを pending に復旧" >> .task/system.log
@@ -428,7 +429,7 @@ mkdir -p .task/panes
 for pane in %31 %32 %33 %34 %35; do
   echo "idle" > .task/panes/${pane}_status
 done
-echo "{}" > .task/panes/current_assignments
+> .task/panes/current_assignments
 
 # 新タスク作成
 mkdir -p .task/task-001/phases
@@ -444,13 +445,14 @@ done
 echo "idle" > .task/panes/%31_status
 echo "completed" > .task/task-001/phases/development
 echo "review" > .task/task-001/current_phase
-jq 'del(."%31")' .task/panes/current_assignments > temp && mv temp .task/panes/current_assignments
+     grep -v "^%31:" .task/panes/current_assignments > temp 2>/dev/null || touch temp
+     mv temp .task/panes/current_assignments
 
 # 例2: 自動的な次フェーズ割り当て（レビューPaneが空いている場合）
 if [ "$(cat .task/panes/%32_status)" = "idle" ]; then
   echo "busy" > .task/panes/%32_status
   echo "running" > .task/task-001/phases/review
-  jq '."%32" = "task-001:review"' .task/panes/current_assignments > temp && mv temp .task/panes/current_assignments
+       echo "%32:task-001:review" >> .task/panes/current_assignments
   tmux send-keys -t %32 "ログイン機能の実装 (フェーズ: review)。完了後は必ず親Pane(%25)に報告してください。" Enter
 fi
 
@@ -458,7 +460,7 @@ fi
 echo "=== 現在の状況 ==="
 for pane in %31 %32 %33 %34 %35; do
   status=$(cat .task/panes/${pane}_status 2>/dev/null || echo "unknown")
-  assignment=$(jq -r ".\"$pane\" // \"none\"" .task/panes/current_assignments)
+       assignment=$(grep "^$pane:" .task/panes/current_assignments 2>/dev/null | cut -d: -f2- || echo "none")
   echo "$pane: $status ($assignment)"
 done
 
@@ -473,7 +475,7 @@ done
 # 不正な状態のPaneを修復
 for pane in %31 %32 %33 %34 %35; do
   if [ "$(cat .task/panes/${pane}_status)" = "busy" ]; then
-    if ! jq -e ".\"$pane\"" .task/panes/current_assignments > /dev/null 2>&1; then
+           if ! grep -q "^$pane:" .task/panes/current_assignments 2>/dev/null; then
       echo "idle" > .task/panes/${pane}_status
       echo "$(date): $pane の不正な busy 状態を修復"
     fi
@@ -554,12 +556,12 @@ echo "pending" > .task/task-001/phases/documentation
 echo "pending" > .task/task-001/phases/deployment
 
 echo "$(date): タスク作成" > .task/task-001/log
-echo "{}" > .task/task-001/assignee_history
+> .task/task-001/assignee_history
 
 # Pane状態管理ディレクトリの初期化
 mkdir -p .task/panes
 for pane in %31 %32 %33 %34 %35; do
   echo "idle" > .task/panes/${pane}_status
 done
-echo "{}" > .task/panes/current_assignments
+> .task/panes/current_assignments
 ```
