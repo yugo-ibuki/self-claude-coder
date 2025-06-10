@@ -180,7 +180,7 @@ tail -f .task/system.log
 tail -f .task/task-001/log
 
 # 現在の割り当て状況
-cat .task/panes/current_assignments | jq .
+cat .task/panes/current_assignments
 ```
 
 ### 📈 進捗レポートの読み方

@@ -82,7 +82,7 @@ Development → Review → Testing → Documentation → Deployment
 ```
 
 実行すると以下が自動実行されます：
-1. ✅ 前提条件チェック（tmux, claude, jq）
+1. ✅ 前提条件チェック（tmux, claude）
 2. ✅ tmuxセッション作成/確認
 3. ✅ 必要なPane作成
 4. ✅ 各PaneでClaude起動
