@@ -32,40 +32,38 @@ if [ ! -d ".task" ]; then
     exit 1
 fi
 
-if [ ! -f "CLAUDE.md" ]; then
-    echo "❌ エラー: CLAUDE.md が見つかりません"
-    exit 1
-fi
-
 echo "✅ タスク管理システムOK"
 
-# 3. tmuxセッションの確認/作成
-echo "📺 tmuxセッションを準備中..."
+# 3. 現在のウィンドウでPaneを作成
+echo "📺 現在のウィンドウでPaneを準備中..."
 
-SESSION_NAME="claude-dev"
+# 現在のPane数を確認
+CURRENT_PANES=$(tmux list-panes | wc -l | tr -d ' ')
+echo "   現在のPane数: $CURRENT_PANES"
 
-# 既存セッションがあるかチェック
-if tmux has-session -t $SESSION_NAME 2>/dev/null; then
-    echo "🔄 既存のセッション '$SESSION_NAME' を使用します"
-    echo "   既存のPaneを確認中..."
-    tmux list-panes -t $SESSION_NAME -F "#{pane_index}: #{pane_id}"
+if [ "$CURRENT_PANES" -lt 6 ]; then
+    echo "🔧 6個のPaneに分割中..."
+    
+    if [ "$CURRENT_PANES" -eq 1 ]; then
+        # 1個から6個に分割
+        tmux split-window -h
+        tmux split-window -v
+        tmux select-pane -t 0
+        tmux split-window -v
+        tmux select-pane -t 2
+        tmux split-window -v
+        tmux select-pane -t 4
+        tmux split-window -v
+    else
+        echo "   既存のPane構成をそのまま使用します"
+    fi
 else
-    echo "🆕 新しいセッション '$SESSION_NAME' を作成します"
-    tmux new-session -d -s $SESSION_NAME
-    
-    # 必要なPaneを作成
-    echo "🔧 必要なPaneを作成中..."
-    for i in {1..4}; do
-        tmux split-window -t $SESSION_NAME -h
-    done
-    
-    # レイアウトを調整
-    tmux select-layout -t $SESSION_NAME even-horizontal
+    echo "✅ 十分なPane数があります"
 fi
 
 # 4. 現在のPane IDを取得
 echo "🔍 Pane IDを確認中..."
-PANE_IDS=($(tmux list-panes -t $SESSION_NAME -F "#{pane_id}"))
+PANE_IDS=($(tmux list-panes -F "#{pane_id}"))
 
 if [ ${#PANE_IDS[@]} -lt 6 ]; then
     echo "❌ エラー: 必要なPane数（6個）が不足しています"
@@ -184,8 +182,7 @@ echo ""
 echo "🎉 Claude tmux自動実行システムの起動が完了しました！"
 echo "============================================="
 echo ""
-echo "📋 セッション情報:"
-echo "   セッション名: $SESSION_NAME"
+echo "📋 Pane情報:"
 echo "   親Pane ID: ${PANE_IDS[0]}"
 echo "   開発Pane ID: ${PANE_IDS[1]}"
 echo "   レビューPane ID: ${PANE_IDS[2]}"
@@ -194,9 +191,8 @@ echo "   ドキュメントPane ID: ${PANE_IDS[4]}"
 echo "   デプロイPane ID: ${PANE_IDS[5]}"
 echo ""
 echo "🔧 次のステップ:"
-echo "   1. セッションにアタッチ: tmux attach-session -t $SESSION_NAME"
-echo "   2. システム状況確認: ./.task/status_check.sh"
-echo "   3. 新しいタスク作成: ./.task/create_task.sh task-XXX \"説明\""
+echo "   1. システム状況確認: ./.task/status_check.sh"
+echo "   2. 新しいタスク作成: ./.task/create_task.sh task-XXX \"説明\""
 echo ""
 echo "📚 詳細な使用方法は README_CLAUDE.md を参照してください"
 echo ""
