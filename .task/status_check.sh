@@ -14,7 +14,7 @@ for pane in %31 %32 %33 %34 %35; do
     if [ -f "$status_file" ]; then
         status=$(cat "$status_file")
         # 現在の割り当てを確認
-        assignment=$(jq -r ".\"$pane\" // \"none\"" .task/panes/current_assignments 2>/dev/null || echo "none")
+        assignment=$(grep "^$pane:" .task/panes/current_assignments 2>/dev/null | cut -d: -f2- || echo "none")
         
         # Paneの役割を表示
         case "$pane" in
